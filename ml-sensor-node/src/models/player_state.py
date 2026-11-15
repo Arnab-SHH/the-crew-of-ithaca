@@ -9,7 +9,8 @@ That flickers (blinks, quick glances), so timers debounce it:
     DAMAGED --(every DAMAGE_REPEAT_SEC)-----------> DAMAGED   "take_damage" again
     any     --(focused RECOVERY_SEC)--------------> FOCUSED   "player_recovered"
 
-"Left Desk" (no face) gets NO_FACE_GRACE_SEC extra before it counts.
+"Left Desk" (no face) gets NO_FACE_GRACE_SEC extra before it counts, and looking
+left/right (head or eyes) gets SIDE_LOOK_GRACE_SEC extra, so normal glances are free.
 Each event fires once per step, so the backend is not spammed every frame.
 """
 import time
@@ -35,7 +36,12 @@ class PlayerState:
         self.next_damage_at = None
 
     def _limits(self, reason):
-        extra = config.NO_FACE_GRACE_SEC if reason == config.REASON_LEFT_DESK else 0.0
+        if reason == config.REASON_LEFT_DESK:
+            extra = config.NO_FACE_GRACE_SEC
+        elif reason in (config.REASON_HEAD_TURNED, config.REASON_EYES_AWAY):
+            extra = config.SIDE_LOOK_GRACE_SEC
+        else:
+            extra = 0.0
         return config.WARNING_DELAY + extra, config.PENALTY_THRESHOLD + extra
 
     def update(self, reason, now=None):

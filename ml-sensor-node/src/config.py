@@ -37,6 +37,7 @@ PENALTY_THRESHOLD = 6.0    # seconds distracted before take_damage fires
 DAMAGE_REPEAT_SEC = 3.0    # keep dealing damage this often while distracted
 RECOVERY_SEC = 0.5         # must look back this long to count as recovered (teammate)
 NO_FACE_GRACE_SEC = 1.5    # extra time before "Left Desk" counts (teammate)
+SIDE_LOOK_GRACE_SEC = 3.0  # extra time for looking left/right (head or eyes) before it counts
 DAMAGE_AMOUNT = 10
 
 # Webcam stream to the browser PIP
@@ -59,22 +60,23 @@ LEFT_EYE_BOTTOM = 145
 LEFT_IRIS_CENTER = 468
 
 # Ratio thresholds (widened after playtesting; were 0.34/0.66, 0.68, 0.18, 0.35/0.65)
-YAW_LOW = 0.28
-YAW_HIGH = 0.72
+YAW_LOW = 0.22
+YAW_HIGH = 0.78
 PITCH_HIGH = 0.75
 BLINK_LOW = 0.12
-GAZE_LOW = 0.28
-GAZE_HIGH = 0.72
+GAZE_LOW = 0.22
+GAZE_HIGH = 0.78
 
 # ---------------------------------------------------------------------------
 # Teammate's posture / eye limits (used when head-pose + blendshapes exist)
 # ---------------------------------------------------------------------------
 # (widened after playtesting; were 30, 25, 25, 0.60, 0.60)
-YAW_LIMIT_DEG = 38          # head turned left/right more than this
+YAW_LIMIT_DEG = 45          # head turned left/right more than this
 PITCH_DOWN_LIMIT_DEG = 32   # head tilted down (phone in lap)
 PITCH_UP_LIMIT_DEG = 30     # head tilted back / away
 EYES_CLOSED_LIMIT = 0.75    # eyeBlink blendshape score
-GAZE_AWAY_LIMIT = 0.75      # eyeLookOut / eyeLookDown score
+GAZE_AWAY_LIMIT = 0.75      # eyeLookDown score (reading notes vs. closed eyes)
+GAZE_SIDE_LIMIT = 0.85      # eyeLookOut score: eyes far to the side
 EYES_COVERED_RATIO = 0.45   # eye detail below this share of calibrated normal = covered
 BASELINE_FRAMES = 60        # ~2-5 s of "looking at the screen" to calibrate
 

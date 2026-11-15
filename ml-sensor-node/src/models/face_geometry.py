@@ -194,7 +194,7 @@ def check_posture(face, baseline):
         # Eyelids drop when reading notes, so only count closed eyes when NOT looking down
         if face.eyes_closed > config.EYES_CLOSED_LIMIT and face.gaze_down < config.GAZE_AWAY_LIMIT:
             return config.REASON_EYES_CLOSED
-        if face.gaze_side > config.GAZE_AWAY_LIMIT:
+        if face.gaze_side > config.GAZE_SIDE_LIMIT:
             return config.REASON_EYES_AWAY
     return None
 
