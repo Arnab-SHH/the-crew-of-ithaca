@@ -63,3 +63,29 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+---
+
+# Project: The Crew of Ithaca
+
+## Execution rule
+Never spawn parallel swarm workers or subagents. Execute all tasks sequentially in a single thread.
+
+## Layout
+- `ml-sensor-node/` — Python. Webcam → MediaPipe (Face Landmarker, Face Mesh fallback) → `siren_warning` / `take_damage` / `player_recovered` / `webcam_frame` over Socket.io. Never calls ElevenLabs or Chert.
+- `backend/` — Node (CommonJS), port 4000. Room state (`models/`), socket contract (`sockets/roomHandler.js`), Python auto-spawner, Chert (`services/chertService.js`, `routes/chertWebhook.js`), ElevenLabs (`services/elevenlabsService.js`).
+- `captain-agent/` — Node LiveKit agent (from `chert new --video`). Captain Odysseus answers FaceTime via `chert dev`, snapshots the caller's camera, checks it with Gemini (GOOGLE_API_KEY, free tier) or OpenAI vision, then calls `POST /api/chert-webhook`. Follow its `AGENTS.md` (Chert's rules).
+- `frontend/` — React + Vite. Visual design comes from `reference/friend-ui-demo/` (`src/style.css`, Playfair / DM Mono / Manrope, gold-on-slate palette). Match it for any new UI.
+- Shared secrets live in the root `.env` (git-ignored; template in `.env.example`).
+
+## Socket contract (do not rename events or fields)
+`join_room`, `join_success`, `join_error`, `leave_room`, `webcam_frame`, `siren_warning`, `take_damage`, `player_recovered`, `facetime_verified`, `crew_voice_message`, `reset_voyage`, `room_state_update`, plus server → client `captain_voice`.
+REST: `POST /api/chert-webhook`, `POST /api/chert-call`, `POST /api/voice`, `GET /health`.
+
+## Verified values — change only with a reason
+- Ratios: `yaw_ratio`, `pitch_ratio`, `blink_ratio`, `gaze_ratio` and thresholds in `ml-sensor-node/src/config.py`.
+- Debounce: 0.4 s warning, 3.0 s penalty.
+
+## Tests
+- `cd backend && npm test` — end-to-end socket contract test (Chert/ElevenLabs/auto-spawn disabled).
+- `cd frontend && npm run build`.

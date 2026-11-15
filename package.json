@@ -1,0 +1,8 @@
+{
+  "name": "crew-of-ithaca",
+  "private": true,
+  "description": "Opens every part of The Crew of Ithaca in its own window",
+  "scripts": {
+    "start": "powershell -NoProfile -ExecutionPolicy Bypass -File start-all.ps1"
+  }
+}

@@ -1,0 +1,24 @@
+# Secrets
+.env
+.env.local
+
+# Node
+node_modules/
+dist/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# MediaPipe model (downloaded on first run)
+ml-sensor-node/assets/*.task
+ml-sensor-node/assets/*.part
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
