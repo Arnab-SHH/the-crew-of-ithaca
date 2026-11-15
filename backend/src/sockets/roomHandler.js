@@ -145,8 +145,8 @@ function startFacetime(roomCode, p) {
   }, FACETIME_WINDOW_MS));
 }
 
-/** Heal +10 HP after Captain Odysseus sees the notebook. Used by socket + REST webhook. */
-function verifyPlayer({ room, player, phone }) {
+/** Finds the sailor the Captain means: by room+name, phone, name (any case), the one on a check-in call, or the only one. */
+function findSailor({ room, player, phone }) {
   let { shipRoom, p } = find(room, player);
   if (!p && phone) {
     const wanted = normPhone(phone);
@@ -161,7 +161,23 @@ function verifyPlayer({ room, player, phone }) {
   if (!p && player) pick(everyone().filter(([, x]) => x.name.toLowerCase() === String(player).trim().toLowerCase()));
   if (!p) pick(everyone().filter(([, x]) => x.facetimePending)); // the one sailor on a check-in call
   if (!p) pick(everyone());                                      // or the only sailor at all
-  if (!p) return null;
+  return p ? { shipRoom, p } : null;
+}
+
+/** Is the sailor back at their desk? For the Captain's check: sensor online, and how long they've been focused. */
+function focusState({ room, player, phone }) {
+  const found = findSailor({ room, player, phone });
+  if (!found) return null;
+  const { p } = found;
+  const focusedForMs = p.status === 'focused' && p.focusedSince ? Date.now() - p.focusedSince : 0;
+  return { player: p.name, sensorOnline: Boolean(p.pySocketId), focusedForMs };
+}
+
+/** Heal +10 HP after Captain Odysseus's check-in passes. Used by socket + REST webhook. */
+function verifyPlayer({ room, player, phone }) {
+  const found = findSailor({ room, player, phone });
+  if (!found) return null;
+  const { shipRoom, p } = found;
 
   shipRoom.applyFaceTimeVerified({ player: p.name });
   clearFacetime(shipRoom.roomCode, p.name);
@@ -352,4 +368,4 @@ function registerRoomHandlers(ioServer, socket) {
   });
 }
 
-module.exports = { initRoomHandler, registerRoomHandlers, verifyPlayer, setCheckInCall, killAllSensors };
+module.exports = { initRoomHandler, registerRoomHandlers, verifyPlayer, focusState, setCheckInCall, killAllSensors };

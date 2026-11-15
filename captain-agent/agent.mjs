@@ -1,33 +1,37 @@
 import { fileURLToPath } from 'node:url';
-import { AutoSubscribe, defineAgent, llm, voice } from '@livekit/agents';
+import { AutoSubscribe, defineAgent, voice } from '@livekit/agents';
 import { realtime } from '@livekit/agents-plugin-openai';
 import * as google from '@livekit/agents-plugin-google';
 import { LocalVideoTrack, TrackSource, VideoBufferType, VideoFrame, VideoSource } from '@livekit/rtc-node';
 import { drawFace, FPS, HEIGHT, WIDTH } from './face.mjs';
 import { runAgent } from './chert-rooms.mjs';
 import { greetOnBridgeReady } from './greet.mjs';
-import { watchCallerCamera } from './camera.mjs';
-import { checkStudyNotes, tellGame } from './game.mjs';
 import { writeFile } from 'node:fs/promises';
+import { checkNotes, checkTrueFact, focusState, tellGame } from './game.mjs';
+import { watchCallerCamera } from './camera.mjs';
 
 // Captain Odysseus, for The Crew of Ithaca study game.
+// No tools: Gemini Live drops the call when it moves into a tool call. The code below does the checks
+// (the phone camera and a spoken fact with separate Gemini requests, the desk with the webcam sensor)
+// and tells the Captain what to say.
 const instructions = `You are Captain Odysseus, the AI captain of the ship in "The Crew of Ithaca", a co-op study game.
-A student (a "sailor") is calling you on FaceTime Video because the Sirens distracted them and the ship's hull was damaged.
+A student (a "sailor") is on a FaceTime call with you because the Sirens distracted them and the ship's hull was damaged.
 Your job: get them back to studying.
-1. Ask for their sailor name if you do not know it.
-2. Ask them to hold their notebook, textbook or study notes up to the camera.
-3. When they say they are showing it, call the check_notebook tool with their sailor name. Never claim you can see
-   the notebook without calling the tool, and never call it before they say they are showing something.
-4. If the tool says the hull was repaired, praise them briefly and tell them to put the phone down and get back to work.
-   If it says the notes were not visible, ask them to hold the notes closer and steadier, then try again.
-Speak like a warm but commanding sea captain from Homer's Odyssey. Keep every reply to one or two short sentences.
-Be clear that you are an AI if asked.`;
+- First ask them to hold their notebook or study notes up to the phone camera (the back camera works best).
+- You cannot see the camera yourself. The ship's lookout will tell you what the camera shows. Never say you can see
+  the notes, or that they are not there, until the lookout tells you. While you wait, keep any reply very short.
+- Only if you asked them to tell you something true: when what they say is true, say "True!" and tell them to put the
+  phone down and look at their laptop screen. When it is false, say so in a few words and ask again.
+- Never say the hull is repaired yourself: the ship's log will tell you when it is.
+- After the hull is repaired, stay on the call and chat kindly if they want to talk.
+Speak like a warm but commanding sea captain from Homer's Odyssey. Keep replies to one or two short sentences,
+unless you are told to say more. Be clear that you are an AI if asked.`;
 // Said once, as soon as FaceTime is ready. Keep it short: it is the first thing the caller hears.
-const greeting = 'Greet the caller in one short sentence as Captain Odysseus, ask for their sailor name, and tell them to have their notebook ready.';
+const greeting = 'Greet the caller in one short sentence as Captain Odysseus, and ask them to hold their study notes up to the phone camera.';
 
 const agent = defineAgent({
   entry: async ctx => {
-    // Audio and video: the Captain needs the caller's camera to check the notebook.
+    // Audio and video: the Captain listens, and checks the caller's phone camera for study notes.
     await ctx.connect(undefined, AutoSubscribe.SUBSCRIBE_ALL);
     // Chert prepares a room before a caller exists. Join promptly so Chert can
     // find us, but wait before opening a paid model session or sending video.
@@ -37,49 +41,19 @@ const agent = defineAgent({
     const sailor = call.outbound ? call.player : null;
     const callInstructions = sailor
       ? `${instructions}\nYou are calling the sailor ${sailor}: the Sirens distracted them and the hull took damage. `
-        + `You already know their name, so do not ask for it. Use "${sailor}" as sailor_name for check_notebook.`
+        + 'You already know their name, so do not ask for it.'
       : instructions;
     const callGreeting = sailor
-      ? `Greet ${sailor} by name in one short sentence as Captain Odysseus: the Sirens have damaged the hull, so hold your notebook up to the camera.`
+      ? `Greet ${sailor} by name as Captain Odysseus: in one short sentence say the Sirens damaged the hull, then ask them to hold their study notes up to the phone camera.`
       : greeting;
 
     const caller = await ctx.waitForParticipant();
     const camera = watchCallerCamera(ctx.room, caller.identity);
+    ctx.addShutdownCallback(async () => camera.stop());
     // Tell the game a check-in call started, so the sailor isn't damaged for looking at their phone.
     void tellGame('/api/chert-call', { status: 'started', room: call.room, player: sailor });
     ctx.addShutdownCallback(async () => {
-      camera.stop();
       await tellGame('/api/chert-call', { status: 'ended', room: call.room, player: sailor });
-    });
-
-    const checkNotebook = llm.tool({
-      name: 'check_notebook',
-      description: 'Take a photo with the caller\'s camera and check that they are showing a notebook or study notes. '
-        + 'If they are, this repairs the ship\'s hull by 10 HP. Call it only after the sailor says they are holding it up.',
-      parameters: {
-        type: 'object',
-        properties: { sailor_name: { type: 'string', description: 'The sailor name the caller gave' } },
-        required: ['sailor_name'],
-      },
-      execute: async ({ sailor_name }) => {
-        // Two tries, half a second apart, in case the first frame is mid-movement.
-        let seen;
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          const photo = camera.snapshot();
-          if (!photo) return 'No camera picture is coming through. Ask the caller to switch to FaceTime Video and hold the notes up.';
-          // Saved so you can see exactly what the Captain checked
-          await writeFile(new URL('./last-snapshot.png', import.meta.url), Buffer.from(photo.split(',')[1], 'base64')).catch(() => {});
-          try { seen = await checkStudyNotes(photo); }
-          catch (error) { console.error('[captain] vision check failed', error); return 'The spyglass failed. Ask them to try once more.'; }
-          console.log(`[captain] ${sailor_name} showed (try ${attempt}): ${seen.item} (verified: ${seen.verified}) — see captain-agent/last-snapshot.png`);
-          if (seen.verified) break;
-          await new Promise((r) => setTimeout(r, 500));
-        }
-        if (!seen.verified) return `Not study notes. The camera shows: ${seen.item}. Ask them to hold their notes closer and steadier.`;
-        const result = await tellGame('/api/chert-webhook', { room: call.room, player: sailor || sailor_name, verified: true, observedItem: seen.item });
-        if (result.healed) return `Verified ${seen.item}. The hull is repaired: +10 HP, now ${result.hullHealth}. Praise them and send them back to studying.`;
-        return `Notes verified, but the ship's log has no sailor called ${sailor_name}. Ask them to spell the name they joined with.`;
-      },
     });
 
     // Video: one camera track, published by this agent. The Mac shows video only
@@ -106,7 +80,7 @@ const agent = defineAgent({
     });
     await session.start({
       room: ctx.room,
-      agent: new voice.Agent({ instructions: callInstructions, tools: [checkNotebook] }),
+      agent: new voice.Agent({ instructions: callInstructions }),
       record: false,
       inputOptions: {
         participantIdentity: caller.identity,
@@ -122,8 +96,92 @@ const agent = defineAgent({
     // room metadata): the Mac ends the call if it hears nothing within 10 seconds
     // of that. Participant arrival alone is not readiness, so there is no greeting
     // on it. Without the signal there is no greeting, and the caller speaks first.
-    const stopGreeting = greetOnBridgeReady(ctx.room, () => session.generateReply({ instructions: callGreeting }));
+    const stopGreeting = greetOnBridgeReady(ctx.room, () => {
+      session.generateReply({ instructions: callGreeting });
+      setTimeout(() => void watchNotes(), 4000); // start looking once the greeting has asked for the notes
+    });
     ctx.addShutdownCallback(async () => stopGreeting());
+    setTimeout(() => void watchNotes(), 20000); // in case the ready signal never comes
+
+    // The check-in:
+    // 1. notes: the phone camera shows study notes (checked every 4 s by a Gemini vision request).
+    //    Backup after about 35 s: the sailor says something true (a Gemini text request).
+    // 2. desk: the webcam sensor sees them focused on the laptop for 3 s, counted after step 1.
+    // 3. done: +10 HP; the Captain praises them, encourages them, and stays on the call.
+    let step = 'notes', closed = false, notesStarted = false;
+    ctx.addShutdownCallback(async () => { closed = true; });
+    const say = (text) => { try { session.generateReply({ instructions: text }); } catch { /* the call ended */ } };
+    const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    async function watchNotes() {
+      if (step !== 'notes' || notesStarted) return;
+      notesStarted = true;
+      const end = Date.now() + 35000;
+      let tries = 0;
+      while (!closed && step === 'notes' && Date.now() < end) {
+        const photo = camera.snapshot();
+        if (photo) {
+          tries++;
+          // Saved so you can see exactly what the Captain checked
+          await writeFile(new URL('./last-check.png', import.meta.url), Buffer.from(photo.split(',')[1], 'base64')).catch(() => {});
+          const seen = await checkNotes(photo);
+          if (seen) console.log(`[captain] camera check ${tries}: ${seen.item} (notes: ${seen.verified}) - see captain-agent/last-check.png`);
+          if (seen?.verified && step === 'notes') {
+            step = 'desk';
+            say(`The ship's lookout sees: ${seen.item}. In one or two short sentences, tell the sailor what you see on their `
+              + 'notes, then tell them to put the phone down and look at their laptop screen.');
+            void watchDesk(`Notes on camera: ${seen.item}`);
+            return;
+          }
+        }
+        await pause(4000);
+      }
+      if (closed || step !== 'notes') return;
+      console.log(`[captain] no notes seen after ${tries} camera checks; asking for something true instead`);
+      step = 'truth';
+      say('The ship\'s lookout could not make out any notes. In one short sentence, say no matter, and ask the sailor to tell you something true instead.');
+    }
+
+    session.on(voice.AgentSessionEventTypes.UserInputTranscribed, async (event) => {
+      if (!event.isFinal || step !== 'truth' || !event.transcript.trim()) return;
+      const heard = event.transcript.trim();
+      const result = await checkTrueFact(heard);
+      console.log(`[captain] heard "${heard}" -> true fact: ${result.true_fact}${result.fact ? ` (${result.fact})` : ''}`);
+      if (!result.true_fact || step !== 'truth') return;
+      step = 'desk';
+      void watchDesk(`True fact: ${result.fact || heard}`);
+    });
+
+    async function watchDesk(proof) {
+      const started = Date.now();
+      let nudged = Date.now();
+      while (!closed) {
+        const state = await focusState(call.room, sailor);
+        if (!state) {
+          console.log('[captain] the game has no sailor to heal: is the game open with someone joined?');
+          return;
+        }
+        // 3 s of focus, counted only from now (no sensor running: step 1 is enough)
+        const focusedNow = Math.min(state.focusedForMs, Date.now() - started);
+        if (!state.sensorOnline || focusedNow >= 3000) {
+          console.log(`[captain] ${state.player} at desk (sensor ${state.sensorOnline ? 'on' : 'off'}) after ${Math.round((Date.now() - started) / 1000)}s`);
+          const healed = await tellGame('/api/chert-webhook', { room: call.room, player: state.player, verified: true, observedItem: proof });
+          step = 'done';
+          if (!healed.healed) { console.log('[captain] the game did not heal:', healed.error || healed); return; }
+          say(`The ship's log says the hull is repaired: +10 HP, now ${healed.hullHealth} HP. Tell ${state.player} warmly in one sentence. `
+            + 'Then, in three or four sentences, give them a heartfelt message of encouragement that anyone in the world would '
+            + 'appreciate: that every page they study is a step forward, that focus is a skill they are building, that '
+            + 'setbacks are part of every great voyage, and that they are capable of more than they think. Speak from the heart, '
+            + 'not like a slogan. End by wishing them fair winds, and stay on the call.');
+          return;
+        }
+        if (Date.now() - nudged > 15000) {
+          nudged = Date.now();
+          say('The sailor is not looking at their laptop screen yet. In one short sentence, tell them to put the phone down and look at the screen.');
+        }
+        await pause(500);
+      }
+    }
   },
 });
 

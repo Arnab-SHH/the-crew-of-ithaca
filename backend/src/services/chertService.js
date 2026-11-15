@@ -9,7 +9,7 @@
  * Set CHERT_API_KEY (starts with ftk_...) and CHERT_PROJECT_ID in the root .env
  * (or CHERT_LINE_ID if you have a specific line).
  * CHERT_ASSISTANT_ID = your published "Captain Odysseus" managed assistant. It
- * checks the student's notebook on camera, then calls POST /api/chert-webhook.
+ * checks the sailor's study notes on the phone camera and that they're back at their desk, then calls POST /api/chert-webhook.
  */
 
 const https = require('https');
@@ -262,20 +262,20 @@ async function triggerDamage({ phone, playerName, reason, room }) {
       });
       if (started) {
         sendiMessage({ phone, playerName, message: `🚨 SHIP DAMAGED! ${playerName} caused -10 HP damage due to: ${reason}! `
-          + 'Captain Odysseus is FaceTiming you now — answer and hold your notebook up to the camera to repair +10 HP.' });
+          + 'Captain Odysseus is FaceTiming you now — answer and show him your notes on camera to repair +10 HP.' });
         return true;
       }
     }
     // ...or, if that isn't possible, the player FaceTimes the line and `chert dev` answers.
     const number = await getLineNumber();
     const message = `🚨 SHIP DAMAGED! ${playerName} caused -10 HP damage due to: ${reason}! ` +
-      `FaceTime Captain Odysseus${number ? ` at ${number}` : ''} and hold your notebook up to the camera to repair +10 HP.`;
+      `FaceTime Captain Odysseus${number ? ` at ${number}` : ''} and show him your notes on camera to repair +10 HP.`;
     sendiMessage({ phone, playerName, message });
     return false;
   }
 
   const message = `🚨 SHIP DAMAGED! ${playerName} caused -10 HP damage due to: ${reason}! ` +
-    `Captain Odysseus is FaceTiming you — hold your notebook up to the camera to repair +10 HP.`;
+    `Captain Odysseus is FaceTiming you — show him your notes on camera to repair +10 HP.`;
   sendiMessage({ phone, playerName, message });
   return sendFaceTimeCall({ phone, playerName, reason });
 }

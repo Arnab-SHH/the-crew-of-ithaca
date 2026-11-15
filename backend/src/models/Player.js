@@ -8,20 +8,24 @@ class Player {
     this.reason = '';
     this.penalties = 0;
     this.facetimePending = false; // Chert FaceTime verification call in progress
+    this.focusedSince = Date.now(); // when the sensor last saw them focused again
   }
 
   applyWarning(reason) {
+    this.focusedSince = null;
     this.status = 'warning';
     this.reason = reason;
   }
 
   applyDamage(reason) {
+    this.focusedSince = null;
     this.status = 'damaged';
     this.reason = reason;
     this.penalties += 1;
   }
 
   recover() {
+    if (this.status !== 'focused' || !this.focusedSince) this.focusedSince = Date.now();
     this.status = 'focused';
     this.reason = '';
   }

@@ -12,7 +12,7 @@ function WarningBox({ alert, isSunk }) {
     return <div className="warning-box"><Shield size={16} /><span>All hands focused. The passage is clear.</span></div>
   }
   if (alert.facetimePending) {
-    return <div className="warning-box"><Smartphone size={16} /><span><b>{alert.name}</b> is on FaceTime with Captain Odysseus — notebook up to repair the hull.</span></div>
+    return <div className="warning-box"><Smartphone size={16} /><span><b>{alert.name}</b> is on FaceTime with Captain Odysseus — notes up to the camera to repair the hull.</span></div>
   }
   return (
     <div className="warning-box">

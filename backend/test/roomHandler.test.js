@@ -62,12 +62,20 @@ test('full voyage: join, validation, damage, FaceTime heal, voice, leave', async
   py.emit('webcam_frame', { room: 'ITHACA_1', player: 'Arnab', image: 'AAAA', state: 'focused', reason: 'Nominal' });
   assert.equal((await once(a, 'webcam_frame')).image, 'AAAA');
 
+  // the Captain can ask whether the sailor is at their desk (name in any case)
+  const focus = await (await fetch(`${URL}/api/focus?room=ITHACA_1&player=arnab`)).json();
+  assert.equal(focus.player, 'Arnab');
+  assert.equal(focus.sensorOnline, true);
+  assert.ok(focus.focusedForMs >= 0);
+
   // siren_warning -> status + captain voice (text fallback)
   py.emit('siren_warning', { room: 'ITHACA_1', player: 'Arnab', phone: '+18175550199', reason: 'Looking Down at Phone' });
   const [warnState, voice] = await Promise.all([once(b, 'room_state_update', (s) => s.lastEvent?.type === 'warning'), once(b, 'captain_voice')]);
   assert.equal(warnState.players.Arnab.status, 'warning');
   assert.equal(voice.type, 'warning');
   assert.equal(voice.audio, null);
+  // distracted -> not focused for the Captain's desk check
+  assert.equal((await (await fetch(`${URL}/api/focus?room=ITHACA_1&player=Arnab`)).json()).focusedForMs, 0);
 
   // take_damage -> -10 HP and FaceTime pending
   py.emit('take_damage', { room: 'ITHACA_1', player: 'Arnab', phone: '+18175550199', damage: 10, reason: 'Looking Down at Phone' });
@@ -101,6 +109,8 @@ test('full voyage: join, validation, damage, FaceTime heal, voice, leave', async
   await once(a, 'room_state_update', (s) => s.players.Penelope?.status === 'damaged');
   b.emit('player_recovered', { room: 'ITHACA_1', player: 'Penelope' });
   assert.equal((await once(a, 'room_state_update', (s) => s.lastEvent?.type === 'recovery')).players.Penelope.status, 'focused');
+  await new Promise((r) => setTimeout(r, 300));
+  assert.ok((await (await fetch(`${URL}/api/focus?room=ITHACA_1&player=Penelope`)).json()).focusedForMs >= 250);
 
   // crew_voice_message goes to everyone but the sender
   let echoed = false;

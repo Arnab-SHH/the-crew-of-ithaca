@@ -1,7 +1,7 @@
 /**
  * POST /api/chert-webhook
- * Called by the Chert "Captain Odysseus" FaceTime assistant once it has seen
- * the student hold up their notebook / study notes on the iPhone camera.
+ * Called by the Captain Odysseus FaceTime agent once he has seen the sailor's notes on the
+ * phone camera (or heard something true) and the sailor is back at their desk.
  *
  * Body: { room, player, verified: true, observedItem: "Study Notes / Notebook" }
  * If room/player are missing, the player is found by `phone` (the number Chert called).
@@ -11,10 +11,13 @@
  * POST /api/chert-call  { status: "started" | "ended", room?, player? }
  * Sent by captain-agent/ when a FaceTime check-in begins and ends, so the sailor
  * isn't damaged for looking at their phone during it.
+ *
+ * GET /api/focus?room=&player=
+ * For captain-agent/: { sensorOnline, focusedForMs } — is the sailor back at their desk?
  */
 const express = require('express');
 
-function createChertWebhookRouter({ verifyPlayer, setCheckInCall }) {
+function createChertWebhookRouter({ verifyPlayer, setCheckInCall, focusState }) {
   const router = express.Router();
 
   const authorized = (req, res) => {
@@ -47,6 +50,12 @@ function createChertWebhookRouter({ verifyPlayer, setCheckInCall }) {
       return res.status(404).json({ ok: false, error: 'player not found in any room' });
     }
     res.json({ ok: true, healed: true, room: result.room, player: result.player, hullHealth: result.hullHealth });
+  });
+
+  router.get('/focus', (req, res) => {
+    const state = focusState({ room: req.query.room, player: req.query.player });
+    if (!state) return res.status(404).json({ ok: false, error: 'player not found in any room' });
+    res.json({ ok: true, ...state });
   });
 
   return router;

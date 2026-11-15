@@ -10,12 +10,12 @@ export default function ChertStatusPanel({ players, lastEvent }) {
     <section className="sponsor-settings chert-panel">
       <div>
         <span className="eyebrow">CHERT CHECK-IN · CAPTAIN ODYSSEUS</span>
-        <p>A Siren warning sends an iMessage. Damage escalates to a FaceTime video call — hold your notebook or study notes up to the iPhone camera to repair the hull by +10 HP.</p>
+        <p>A Siren warning sends an iMessage. Damage escalates to a FaceTime video call — show Captain Odysseus your study notes on the phone camera, then get back to your desk to repair the hull by +10 HP.</p>
       </div>
       <div className="chert-rows">
         {onCall.map((p) => (
           <div className="chert-row calling" key={p.name}>
-            <Smartphone size={14} /><span><b>{p.name}</b> is on FaceTime — verifying notebook…</span>
+            <Smartphone size={14} /><span><b>{p.name}</b> is on FaceTime with the Captain…</span>
           </div>
         ))}
         {healed && (

@@ -1,6 +1,6 @@
 # The Crew of Ithaca 🚢
 
-A multiplayer co-op focus game based on Homer's *Odyssey*. Your crew shares one ship. A webcam sensor watches each sailor. Look at your phone and the Sirens warn you, then damage the hull. Captain Odysseus (Chert) FaceTimes you, and showing your notebook on camera repairs the hull.
+A multiplayer co-op focus game based on Homer's *Odyssey*. Your crew shares one ship. A webcam sensor watches each sailor. Look at your phone and the Sirens warn you, then damage the hull. Captain Odysseus (Chert) FaceTimes you and looks through your phone camera: show him your study notes, get back to your desk, and the hull is repaired.
 
 ```
 ml-sensor-node/  Python  webcam → MediaPipe → focus events + live camera frames

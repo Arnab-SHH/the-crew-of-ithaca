@@ -15,7 +15,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { initRoomHandler, registerRoomHandlers, verifyPlayer, setCheckInCall, killAllSensors } = require('./sockets/roomHandler');
+const { initRoomHandler, registerRoomHandlers, verifyPlayer, focusState, setCheckInCall, killAllSensors } = require('./sockets/roomHandler');
 const { createChertWebhookRouter } = require('./routes/chertWebhook');
 const { synthesize } = require('./services/elevenlabsService');
 
@@ -31,7 +31,7 @@ app.get('/health', (req, res) => {
 });
 
 // Chert FaceTime assistant -> heal +10 HP
-app.use('/api', createChertWebhookRouter({ verifyPlayer, setCheckInCall }));
+app.use('/api', createChertWebhookRouter({ verifyPlayer, setCheckInCall, focusState }));
 
 // ElevenLabs TTS proxy (friend-ui-demo route, kept for direct use)
 app.post('/api/voice', async (req, res) => {
