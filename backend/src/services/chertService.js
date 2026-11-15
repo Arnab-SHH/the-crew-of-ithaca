@@ -23,12 +23,38 @@ const CHERT_ASSISTANT_ID = process.env.CHERT_ASSISTANT_ID || '';
 const CHERT_ENABLED = Boolean(CHERT_API_KEY);
 
 // take_damage repeats every few seconds while a player stays distracted.
-// Only one FaceTime call per phone in this window.
+// Only one FaceTime call per sailor (their own phone) in this window.
 const FACETIME_COOLDOWN_MS = 90 * 1000;
-const lastCallAt = new Map(); // phone -> ms
+const lastCallAt = new Map(); // sailor's phone -> ms
 // The sensor warns often; the free trial allows ~50 texts an hour. One warning text per phone per minute.
 const WARNING_TEXT_COOLDOWN_MS = 60 * 1000;
-const lastWarningAt = new Map(); // phone -> ms
+const lastWarningAt = new Map(); // destination phone -> ms
+const lastBusyTextAt = new Map(); // sailor's phone -> ms
+
+// Demo "bridge phone": a trial line only reaches verified numbers, so DEMO_FALLBACK_PHONE sends
+// every text and call to one phone. The Captain still names the sailor who was distracted.
+const DEMO_FALLBACK_PHONE = process.env.DEMO_FALLBACK_PHONE || '';
+const destination = (phone) => DEMO_FALLBACK_PHONE || phone;
+
+// One Chert line = one FaceTime call at a time. While it is busy, other distracted sailors get a
+// "Captain is busy" text instead of a call. Freed when the call ends (or by a safety timeout).
+const RING_TIMEOUT_MS = 60 * 1000;      // placed but never answered
+const CALL_TIMEOUT_MS = 5 * 60 * 1000;  // answered, but the "ended" report never came
+let lineBusy = null; // { player, timer }
+
+function markLineBusy(player, ms = CALL_TIMEOUT_MS) {
+  if (lineBusy) clearTimeout(lineBusy.timer);
+  const name = player || (lineBusy && lineBusy.player) || null;
+  lineBusy = { player: name, timer: setTimeout(() => { lineBusy = null; console.log('[captain-call] Line free again (timed out)'); }, ms) };
+  if (lineBusy.timer.unref) lineBusy.timer.unref();
+}
+
+function markLineFree() {
+  if (!lineBusy) return;
+  clearTimeout(lineBusy.timer);
+  lineBusy = null;
+  console.log('[captain-call] Line free again');
+}
 
 /**
  * The project's lines from Chert (fetched once).
@@ -122,6 +148,7 @@ function triggerLocalFaceTimeCall({ phone, playerName }) {
  * Send an iMessage via official Chert Cloud API
  */
 async function sendiMessage({ phone, playerName, message }) {
+  phone = destination(phone);
   if (!phone) return;
 
   if (!CHERT_ENABLED) {
@@ -170,6 +197,7 @@ async function sendiMessage({ phone, playerName, message }) {
  * Resolves true only if Chert accepted the call.
  */
 async function sendFaceTimeCall({ phone, playerName, reason }) {
+  phone = destination(phone);
   if (!phone) return false;
 
   if (!CHERT_ENABLED) {
@@ -229,8 +257,9 @@ async function sendFaceTimeCall({ phone, playerName, reason }) {
 }
 
 function triggerWarning({ phone, playerName, reason }) {
-  if (!phone || Date.now() - (lastWarningAt.get(phone) || 0) < WARNING_TEXT_COOLDOWN_MS) return;
-  lastWarningAt.set(phone, Date.now());
+  const to = destination(phone);
+  if (!to || Date.now() - (lastWarningAt.get(to) || 0) < WARNING_TEXT_COOLDOWN_MS) return;
+  lastWarningAt.set(to, Date.now());
   const message = `⚠️ SIREN WARNING! ${playerName}, stop: ${reason}. Your Crew of Ithaca needs you focused!`;
   sendiMessage({ phone, playerName, message });
 }
@@ -240,14 +269,29 @@ function triggerWarning({ phone, playerName, reason }) {
  * Resolves true if Chert accepted a new FaceTime verification call.
  */
 async function triggerDamage({ phone, playerName, reason, room }) {
-  if (!phone) return false;
-  const last = lastCallAt.get(phone) || 0;
-  if (Date.now() - last < FACETIME_COOLDOWN_MS) {
-    const wait = Math.ceil((FACETIME_COOLDOWN_MS - (Date.now() - last)) / 1000);
-    console.log(`[captain-call] Not calling ${playerName} yet: this phone had a check-in less than 90 s ago (${wait} s left).`);
+  const to = destination(phone);
+  if (!to) return false;
+  const key = phone || playerName; // cooldowns are per sailor, even when all calls go to one bridge phone
+
+  // The line is on another sailor's call: tell this one to wait (at most one text a minute).
+  if (lineBusy && lineBusy.player !== playerName) {
+    const busyWith = lineBusy.player || 'another sailor';
+    console.log(`[captain-call] Line busy with ${busyWith}: not calling ${playerName}.`);
+    if (Date.now() - (lastBusyTextAt.get(key) || 0) >= WARNING_TEXT_COOLDOWN_MS) {
+      lastBusyTextAt.set(key, Date.now());
+      sendiMessage({ phone, playerName, message: `⚠️ ${playerName}, Captain Odysseus is inspecting ${busyWith} on FaceTime! `
+        + 'Wait your turn, and get back to your helm before the Sirens sink the ship.' });
+    }
     return false;
   }
-  lastCallAt.set(phone, Date.now());
+
+  const last = lastCallAt.get(key) || 0;
+  if (Date.now() - last < FACETIME_COOLDOWN_MS) {
+    const wait = Math.ceil((FACETIME_COOLDOWN_MS - (Date.now() - last)) / 1000);
+    console.log(`[captain-call] Not calling ${playerName} yet: they had a check-in less than 90 s ago (${wait} s left).`);
+    return false;
+  }
+  lastCallAt.set(key, Date.now());
 
   // Without a managed assistant, Captain Odysseus is our own agent (captain-agent/).
   if (CHERT_ENABLED && !CHERT_ASSISTANT_ID) {
@@ -255,12 +299,13 @@ async function triggerDamage({ phone, playerName, reason, room }) {
     if (!outboundEnabled()) {
       console.log('[captain-call] Outbound calls are off (CAPTAIN_CALLS=inbound, or no LiveKit keys in captain-agent/.env.local).');
     } else {
-      console.log(`[captain-call] Calling ${playerName} at ${phone}: starting a room for Captain Odysseus...`);
+      console.log(`[captain-call] Calling ${playerName} at ${to}: starting a room for Captain Odysseus...`);
       const started = await callPlayer({
-        room, player: playerName, phone,
+        room, player: playerName, phone: to,
         chert: { apiKey: CHERT_API_KEY, projectId: CHERT_PROJECT_ID, lineId: await getLineId() },
       });
       if (started) {
+        markLineBusy(playerName, RING_TIMEOUT_MS);
         sendiMessage({ phone, playerName, message: `🚨 SHIP DAMAGED! ${playerName} caused -10 HP damage due to: ${reason}! `
           + 'Captain Odysseus is FaceTiming you now — answer and show him your notes on camera to repair +10 HP.' });
         return true;
@@ -277,11 +322,16 @@ async function triggerDamage({ phone, playerName, reason, room }) {
   const message = `🚨 SHIP DAMAGED! ${playerName} caused -10 HP damage due to: ${reason}! ` +
     `Captain Odysseus is FaceTiming you — show him your notes on camera to repair +10 HP.`;
   sendiMessage({ phone, playerName, message });
-  return sendFaceTimeCall({ phone, playerName, reason });
+  const placed = await sendFaceTimeCall({ phone, playerName, reason });
+  if (placed) markLineBusy(playerName, RING_TIMEOUT_MS);
+  return placed;
 }
 
 function clearCallCooldown(phone) {
   if (phone) lastCallAt.delete(phone);
 }
 
-module.exports = { triggerWarning, triggerDamage, clearCallCooldown, sendiMessage, sendFaceTimeCall };
+module.exports = {
+  triggerWarning, triggerDamage, clearCallCooldown, sendiMessage, sendFaceTimeCall,
+  markLineBusy, markLineFree,
+};

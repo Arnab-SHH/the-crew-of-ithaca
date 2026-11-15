@@ -110,6 +110,8 @@ Notes:
 - After changing the agent's code, restart both `npm start` and `chert dev`.
 - A trial line goes back to the pool if no agent is connected, and the number can change. Leaving `chert dev` running keeps it.
 - Optional: with a published Chert managed assistant on a line you own, set `CHERT_ASSISTANT_ID` and the backend places an outbound FaceTime call instead.
+- **One line, one call at a time.** While the Captain is on a call, other distracted sailors get a "Captain Odysseus is inspecting <name> on FaceTime — wait your turn" text instead of a call. The line frees up when the call ends.
+- **Bridge phone for demos.** A trial line only reaches verified numbers. Set `DEMO_FALLBACK_PHONE=+1…` in `.env.local` (or `.env`) and every text and call goes to that one phone, while the Captain still names whoever was distracted ("Sailor David…") and heals that sailor.
 
 ## 6. Demo controls
 

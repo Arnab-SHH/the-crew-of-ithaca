@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, spawnSync } = require('child_process');
 const ShipRoom = require('../models/ShipRoom');
-const { triggerWarning, triggerDamage, clearCallCooldown } = require('../services/chertService');
+const { triggerWarning, triggerDamage, clearCallCooldown, markLineBusy, markLineFree } = require('../services/chertService');
 const { announce } = require('../services/elevenlabsService');
 
 // ---------------------------------------------------------------------------
@@ -202,6 +202,9 @@ function verifyPlayer({ room, player, phone }) {
  */
 function setCheckInCall(active, { room, player } = {}) {
   const { p: known } = find(room, player);
+  // The one Chert line is on a call (or free again): other sailors wait their turn meanwhile.
+  if (active) markLineBusy(known ? known.name : null);
+  else markLineFree();
   for (const r of Object.values(rooms)) {
     const players = known ? Object.values(r.players).filter((p) => p === known) : Object.values(r.players);
     const distracted = players.filter((p) => p.status !== 'focused');
