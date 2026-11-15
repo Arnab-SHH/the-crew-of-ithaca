@@ -60,8 +60,13 @@ function pythonBin() {
 }
 
 function isLocalClient(socket) {
-  const a = socket.handshake.address || '';
-  return a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1';
+  const loopback = (a) => a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1';
+  const direct = socket.handshake.address || '';
+  if (!loopback(direct)) return false;
+  // Through the frontend's HTTPS proxy every browser arrives from localhost; the proxy
+  // passes the real address in X-Forwarded-For (only trusted when it came from localhost).
+  const forwarded = String(socket.handshake.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return !forwarded || loopback(forwarded);
 }
 
 function shouldSpawn(socket) {

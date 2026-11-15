@@ -20,4 +20,4 @@ if (Test-Path "$root\captain-agent\.env.local") {
   Write-Host 'Skipping Captain Odysseus: no captain-agent\.env.local yet.'
 }
 
-Write-Host 'Opened the game windows. Game: http://localhost:5173'
+Write-Host 'Opened the game windows. Game: https://localhost:5173'

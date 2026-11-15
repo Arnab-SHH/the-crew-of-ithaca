@@ -61,7 +61,7 @@ Or start the parts yourself:
 
 ```powershell
 cd backend;  npm start        # http://localhost:4000
-cd frontend; npm run dev      # http://localhost:5173 (also shown on your LAN IP)
+cd frontend; npm run dev      # https://localhost:5173 (also shown on your LAN IP)
 ```
 
 Open the page, then enter your **name, room code and phone** (with country code). After you join, the backend starts `ml-sensor-node/src/main.py ... --headless` for you, and its annotated camera feed appears in the **Live Sensor** picture-in-picture. **Abandon ship** stops that process and returns you to the lobby. Closing the tab also stops it.
@@ -75,9 +75,10 @@ python src/main.py --player Arnab --room ITHACA_1 --phone +18175550199 --server 
 
 ## 4. Playing over LAN
 
-- Other players open `http://<host-LAN-IP>:5173`. The UI connects to the backend at `http://<same host>:4000`.
+- Other players open `https://<host-LAN-IP>:5173`. The page is HTTPS with a self-signed certificate, so the browser warns once: choose **Advanced → Proceed** (Chrome) or **Show Details → visit this website** (Safari / iPhone). The page then reaches the backend through Vite's proxy (`/socket.io`, `/api`), so there is no mixed content.
 - The auto-launched sensor uses **the backend computer's webcam**. For that reason it only starts automatically for a browser on that computer (`AUTO_SPAWN=local`). A player on another laptop runs the sensor on their own machine. The PIP shows the exact command, with `--server http://<host-IP>:4000`.
-- Browsers only allow the microphone (push-to-talk) and the browser-camera fallback on `localhost` or HTTPS. Over plain-HTTP LAN those two features are blocked by the browser. Everything else works.
+- Because the page is HTTPS, every device has a secure context, so the microphone (push-to-talk) and the browser-camera fallback work over the LAN too.
+- The Python sensor still connects straight to the backend at `http://<host-LAN-IP>:4000` (the PIP shows the exact command).
 
 ## 5. Chert "Captain Odysseus" FaceTime check-in
 
