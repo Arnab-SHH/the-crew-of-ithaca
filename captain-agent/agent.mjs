@@ -26,6 +26,8 @@ Your job: get them back to studying.
 - After the hull is repaired, stay on the call and chat kindly if they want to talk.
 Speak like a warm but commanding sea captain from Homer's Odyssey. Keep replies to one or two short sentences,
 unless you are told to say more. Be clear that you are an AI if asked.`;
+// The Captain's last words after the hull is repaired.
+const CLOSING_LINE = 'Every hour you give your studies today will speak for you one day. Fair winds, sailor.';
 // Said once, as soon as FaceTime is ready. Keep it short: it is the first thing the caller hears.
 const greeting = 'Greet the caller in one short sentence as Captain Odysseus, and ask them to hold their study notes up to the phone camera.';
 
@@ -168,11 +170,8 @@ const agent = defineAgent({
           const healed = await tellGame('/api/chert-webhook', { room: call.room, player: state.player, verified: true, observedItem: proof });
           step = 'done';
           if (!healed.healed) { console.log('[captain] the game did not heal:', healed.error || healed); return; }
-          say(`The ship's log says the hull is repaired: +10 HP, now ${healed.hullHealth} HP. Tell ${state.player} warmly in one sentence. `
-            + 'Then, in three or four sentences, give them a heartfelt message of encouragement that anyone in the world would '
-            + 'appreciate: that every page they study is a step forward, that focus is a skill they are building, that '
-            + 'setbacks are part of every great voyage, and that they are capable of more than they think. Speak from the heart, '
-            + 'not like a slogan. End by wishing them fair winds, and stay on the call.');
+          say(`The ship's log says the hull is repaired: +10 HP, now ${healed.hullHealth} HP. Right away, in one short reply, `
+            + `tell ${state.player} the hull is repaired, then say exactly: "${CLOSING_LINE}"`);
           return;
         }
         if (Date.now() - nudged > 15000) {
