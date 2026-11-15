@@ -310,17 +310,27 @@ function registerRoomHandlers(ioServer, socket) {
       console.log(`[take_damage] ${p.name} ignored: FaceTime verification in progress`);
       return;
     }
+    // One hit per check-in: after it, no more damage until the Captain heals them (+10 HP),
+    // so picking up the phone to answer him doesn't keep sinking the ship.
+    if (p.damageLocked) {
+      console.log(`[take_damage] ${p.name} ignored: waiting for Captain Odysseus's check-in (+10 HP unlocks damage)`);
+      return;
+    }
     shipRoom.applyDamage({ player: p.name, damage, reason });
     console.log(`[take_damage] ${p.name} in ${shipRoom.roomCode}: -${damage} HP (${reason})`);
     announce(io, shipRoom.roomCode, 'damage', p.name, reason);
     broadcastRoomState(shipRoom.roomCode);
     // Pause further damage only once Chert has accepted the call, and only while it rings:
     // when the Captain joins, setCheckInCall() extends it; unanswered, damage counts again.
+    if (CHERT_LIVE) p.damageLocked = true;
     triggerDamage({ phone: p.phone || phone, playerName: p.name, reason, room: shipRoom.roomCode }).then((started) => {
-      if (started && shipRoom.players[p.name] === p) {
-        startFacetime(shipRoom.roomCode, p, RING_WINDOW_MS);
-        broadcastRoomState(shipRoom.roomCode);
+      if (shipRoom.players[p.name] !== p) return;
+      if (started) startFacetime(shipRoom.roomCode, p, RING_WINDOW_MS);
+      else if (p.damageLocked) { // no Captain call is coming, so don't leave them unable to take damage
+        p.damageLocked = false;
+        console.log(`[take_damage] ${p.name}: no check-in call started, damage counts again`);
       }
+      broadcastRoomState(shipRoom.roomCode);
     });
   });
 

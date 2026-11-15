@@ -65,6 +65,7 @@ class ShipRoom {
     p.status = 'focused';
     p.reason = 'FaceTime Verified: Studying Notebook! (+10 HP)';
     p.facetimePending = false;
+    p.damageLocked = false;
     this.lastEvent = {
       type: 'healed',
       player,
@@ -83,6 +84,7 @@ class ShipRoom {
       p.recover();
       p.penalties = 0;
       p.facetimePending = false;
+      p.damageLocked = false;
     }
   }
 

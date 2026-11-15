@@ -8,6 +8,7 @@ class Player {
     this.reason = '';
     this.penalties = 0;
     this.facetimePending = false; // Chert FaceTime verification call in progress
+    this.damageLocked = false;    // hit once, Captain's check-in on the way: no more damage until healed
     this.focusedSince = Date.now(); // when the sensor last saw them focused again
   }
 
@@ -38,6 +39,7 @@ class Player {
       penalties: this.penalties,
       sensorOnline: Boolean(this.pySocketId),
       facetimePending: this.facetimePending,
+      damageLocked: this.damageLocked,
     };
   }
 }

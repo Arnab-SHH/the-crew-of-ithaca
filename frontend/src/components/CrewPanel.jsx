@@ -34,7 +34,9 @@ export default function CrewPanel({ players, me, alert, isSunk }) {
             <div className="crew-name">
               <strong>{p.name}{p.name === me && <small> YOU</small>}</strong>
               <span>
-                {p.facetimePending ? '📱 On FaceTime with the Captain' : STATUS_TEXT[p.status] || 'At the helm'}
+                {p.facetimePending ? '📱 On FaceTime with the Captain'
+                  : p.damageLocked ? '⚓ Waiting for the Captain · damage paused'
+                  : STATUS_TEXT[p.status] || 'At the helm'}
                 {!p.sensorOnline && <em className="crew-tag"> · sensor offline</em>}
               </span>
             </div>
