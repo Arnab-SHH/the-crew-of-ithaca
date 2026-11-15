@@ -84,7 +84,7 @@ REST: `POST /api/chert-webhook`, `POST /api/chert-call`, `POST /api/voice`, `GET
 
 ## Verified values — change only with a reason
 - Ratios: `yaw_ratio`, `pitch_ratio`, `blink_ratio`, `gaze_ratio` and thresholds in `ml-sensor-node/src/config.py`.
-- Debounce: 0.4 s warning, 3.0 s penalty.
+- Debounce: 1.5 s warning, 6.0 s penalty (loosened from 0.4 s / 3.0 s after playtesting; see ml-sensor-node/src/config.py).
 
 ## Tests
 - `cd backend && npm test` — end-to-end socket contract test (Chert/ElevenLabs/auto-spawn disabled).

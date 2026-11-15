@@ -30,10 +30,10 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:4000")
 CAMERA_INDEX = int(os.getenv("CAMERA_INDEX", "0") or 0)
 
 # ---------------------------------------------------------------------------
-# Debounce timers (verified values)
+# Debounce timers (made less sensitive after playtesting; were 0.4 s / 3.0 s)
 # ---------------------------------------------------------------------------
-WARNING_DELAY = 0.4        # seconds distracted before siren_warning fires
-PENALTY_THRESHOLD = 3.0    # seconds distracted before take_damage fires
+WARNING_DELAY = 1.5        # seconds distracted before siren_warning fires
+PENALTY_THRESHOLD = 6.0    # seconds distracted before take_damage fires
 DAMAGE_REPEAT_SEC = 3.0    # keep dealing damage this often while distracted
 RECOVERY_SEC = 0.5         # must look back this long to count as recovered (teammate)
 NO_FACE_GRACE_SEC = 1.5    # extra time before "Left Desk" counts (teammate)
@@ -58,22 +58,23 @@ LEFT_EYE_TOP = 159
 LEFT_EYE_BOTTOM = 145
 LEFT_IRIS_CENTER = 468
 
-# Ratio thresholds (verified)
-YAW_LOW = 0.34
-YAW_HIGH = 0.66
-PITCH_HIGH = 0.68
-BLINK_LOW = 0.18
-GAZE_LOW = 0.35
-GAZE_HIGH = 0.65
+# Ratio thresholds (widened after playtesting; were 0.34/0.66, 0.68, 0.18, 0.35/0.65)
+YAW_LOW = 0.28
+YAW_HIGH = 0.72
+PITCH_HIGH = 0.75
+BLINK_LOW = 0.12
+GAZE_LOW = 0.28
+GAZE_HIGH = 0.72
 
 # ---------------------------------------------------------------------------
 # Teammate's posture / eye limits (used when head-pose + blendshapes exist)
 # ---------------------------------------------------------------------------
-YAW_LIMIT_DEG = 30          # head turned left/right more than this
-PITCH_DOWN_LIMIT_DEG = 25   # head tilted down (phone in lap)
-PITCH_UP_LIMIT_DEG = 25     # head tilted back / away
-EYES_CLOSED_LIMIT = 0.60    # eyeBlink blendshape score
-GAZE_AWAY_LIMIT = 0.60      # eyeLookOut / eyeLookDown score
+# (widened after playtesting; were 30, 25, 25, 0.60, 0.60)
+YAW_LIMIT_DEG = 38          # head turned left/right more than this
+PITCH_DOWN_LIMIT_DEG = 32   # head tilted down (phone in lap)
+PITCH_UP_LIMIT_DEG = 30     # head tilted back / away
+EYES_CLOSED_LIMIT = 0.75    # eyeBlink blendshape score
+GAZE_AWAY_LIMIT = 0.75      # eyeLookOut / eyeLookDown score
 EYES_COVERED_RATIO = 0.45   # eye detail below this share of calibrated normal = covered
 BASELINE_FRAMES = 60        # ~2-5 s of "looking at the screen" to calibrate
 
