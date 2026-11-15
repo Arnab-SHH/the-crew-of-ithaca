@@ -17,7 +17,8 @@ const PORT = process.env.PORT || 4000;
 const ML_DIR = path.resolve(__dirname, '../../../ml-sensor-node');
 const MAIN_PY = path.join(ML_DIR, 'src', 'main.py');
 const AUTO_SPAWN = (process.env.AUTO_SPAWN || 'local').toLowerCase(); // local | always | never
-const FACETIME_WINDOW_MS = 90 * 1000; // how long a verification call may take
+const FACETIME_WINDOW_MS = 90 * 1000; // longest pause while Captain Odysseus is on the call
+const RING_WINDOW_MS = 30 * 1000;     // pause while his call is ringing; ends early if it is not answered
 const CHERT_LIVE = Boolean(process.env.CHERT_API_KEY || process.env.CHERT_SECRET);
 
 const PHONE_RE = /^\+?[1-9]\d{9,14}$/;
@@ -133,7 +134,8 @@ function clearFacetime(room, player) {
   facetimeTimers.delete(k);
 }
 
-function startFacetime(roomCode, p) {
+/** Pause damage for this sailor (they are on, or picking up, the Captain's call) for up to `ms`. */
+function startFacetime(roomCode, p, ms = FACETIME_WINDOW_MS) {
   p.facetimePending = true;
   clearFacetime(roomCode, p.name);
   facetimeTimers.set(key(roomCode, p.name), setTimeout(() => {
@@ -142,7 +144,7 @@ function startFacetime(roomCode, p) {
       p.facetimePending = false;
       broadcastRoomState(roomCode);
     }
-  }, FACETIME_WINDOW_MS));
+  }, ms));
 }
 
 /** Finds the sailor the Captain means: by room+name, phone, name (any case), the one on a check-in call, or the only one. */
@@ -312,10 +314,11 @@ function registerRoomHandlers(ioServer, socket) {
     console.log(`[take_damage] ${p.name} in ${shipRoom.roomCode}: -${damage} HP (${reason})`);
     announce(io, shipRoom.roomCode, 'damage', p.name, reason);
     broadcastRoomState(shipRoom.roomCode);
-    // Pause further damage only once Chert has actually accepted the call
+    // Pause further damage only once Chert has accepted the call, and only while it rings:
+    // when the Captain joins, setCheckInCall() extends it; unanswered, damage counts again.
     triggerDamage({ phone: p.phone || phone, playerName: p.name, reason, room: shipRoom.roomCode }).then((started) => {
       if (started && shipRoom.players[p.name] === p) {
-        startFacetime(shipRoom.roomCode, p);
+        startFacetime(shipRoom.roomCode, p, RING_WINDOW_MS);
         broadcastRoomState(shipRoom.roomCode);
       }
     });

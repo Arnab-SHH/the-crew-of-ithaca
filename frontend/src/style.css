@@ -99,3 +99,6 @@ button:disabled{opacity:.55;cursor:default}
 /* keep page content scrollable clear of the floating PIP + demo bar */
 .app.in-game{padding-bottom:250px}
 @media(max-width:800px){.pip{width:180px}}
+.blood-splash{position:fixed;inset:0;pointer-events:none;z-index:60;animation:blood-fade 1.6s ease-out forwards;background:radial-gradient(ellipse at center,transparent 55%,#7a0a0a55 100%)}
+.blood-splat{position:absolute;fill:#8e0b0b;opacity:.85;filter:drop-shadow(0 0 2px #3a0000)}
+@keyframes blood-fade{0%{opacity:0}8%{opacity:1}55%{opacity:.9}100%{opacity:0}}

@@ -14,6 +14,7 @@ import HelmControls from './components/HelmControls.jsx'
 import ChertStatusPanel from './components/ChertStatusPanel.jsx'
 import DemoControlBar from './components/DemoControlBar.jsx'
 import MiniWebcamPIP from './components/MiniWebcamPIP.jsx'
+import BloodSplash from './components/BloodSplash.jsx'
 
 const VOYAGE_MS = 25 * 60 * 1000
 
@@ -193,6 +194,7 @@ export default function App() {
           />
           <DemoControlBar room={session.room} player={session.player} phone={session.phone} />
           {hail && <div className="hail-toast">{hail}</div>}
+          <BloodSplash lastEvent={room.lastEvent} />
         </>
       )}
     </main>
