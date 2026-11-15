@@ -75,10 +75,22 @@ python src/main.py --player Arnab --room ITHACA_1 --phone +18175550199 --server 
 
 ## 4. Playing over LAN
 
+Option 1 (Using hostspot from mobile phone):
 - Other players open `https://<host-LAN-IP>:5173`. The page is HTTPS with a self-signed certificate, so the browser warns once: choose **Advanced → Proceed** (Chrome) or **Show Details → visit this website** (Safari / iPhone). The page then reaches the backend through Vite's proxy (`/socket.io`, `/api`), so there is no mixed content.
 - The auto-launched sensor uses **the backend computer's webcam**. For that reason it only starts automatically for a browser on that computer (`AUTO_SPAWN=local`). A player on another laptop runs the sensor on their own machine. The PIP shows the exact command, with `--server http://<host-IP>:4000`.
 - Because the page is HTTPS, every device has a secure context, so the microphone (push-to-talk) and the browser-camera fallback work over the LAN too.
 - The Python sensor still connects straight to the backend at `http://<host-LAN-IP>:4000` (the PIP shows the exact command).
+
+Option 2 (Directly from current wifi):
+PowerShell
+npx cloudflared tunnel --url https://localhost:5173/ --no-tls-verify
+(Note: --no-tls-verify tells Cloudflare Tunnel to accept Vite's self-signed https://localhost:5173/ certificate without complaining).
+- Within 5 seconds, your Windows terminal will print a public link inside a box:
+Plaintext
++--------------------------------------------------------------------------------------------+
+|  https://something-random-words.trycloudflare.com/                                          |
++--------------------------------------------------------------------------------------------+
+- Open that [https://....trycloudflare.com](https://....trycloudflare.com) URL on your 2nd device and any iPhone—it works right over the school Wi-Fi, requires zero certificate warnings, and enables both the camera and microphone immediately.
 
 ## 5. Chert "Captain Odysseus" FaceTime check-in
 
