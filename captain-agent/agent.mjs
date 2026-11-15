@@ -8,6 +8,7 @@ import { runAgent } from './chert-rooms.mjs';
 import { greetOnBridgeReady } from './greet.mjs';
 import { watchCallerCamera } from './camera.mjs';
 import { checkStudyNotes, tellGame } from './game.mjs';
+import { writeFile } from 'node:fs/promises';
 
 // Captain Odysseus, for The Crew of Ithaca study game.
 const instructions = `You are Captain Odysseus, the AI captain of the ship in "The Crew of Ithaca", a co-op study game.
@@ -61,12 +62,19 @@ const agent = defineAgent({
         required: ['sailor_name'],
       },
       execute: async ({ sailor_name }) => {
-        const photo = camera.snapshot();
-        if (!photo) return 'No camera picture is coming through. Ask the caller to switch to FaceTime Video and hold the notes up.';
+        // Two tries, half a second apart, in case the first frame is mid-movement.
         let seen;
-        try { seen = await checkStudyNotes(photo); }
-        catch (error) { console.error('[captain] vision check failed', error); return 'The spyglass failed. Ask them to try once more.'; }
-        console.log(`[captain] ${sailor_name} showed: ${seen.item} (verified: ${seen.verified})`);
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          const photo = camera.snapshot();
+          if (!photo) return 'No camera picture is coming through. Ask the caller to switch to FaceTime Video and hold the notes up.';
+          // Saved so you can see exactly what the Captain checked
+          await writeFile(new URL('./last-snapshot.png', import.meta.url), Buffer.from(photo.split(',')[1], 'base64')).catch(() => {});
+          try { seen = await checkStudyNotes(photo); }
+          catch (error) { console.error('[captain] vision check failed', error); return 'The spyglass failed. Ask them to try once more.'; }
+          console.log(`[captain] ${sailor_name} showed (try ${attempt}): ${seen.item} (verified: ${seen.verified}) — see captain-agent/last-snapshot.png`);
+          if (seen.verified) break;
+          await new Promise((r) => setTimeout(r, 500));
+        }
         if (!seen.verified) return `Not study notes. The camera shows: ${seen.item}. Ask them to hold their notes closer and steadier.`;
         const result = await tellGame('/api/chert-webhook', { room: call.room, player: sailor || sailor_name, verified: true, observedItem: seen.item });
         if (result.healed) return `Verified ${seen.item}. The hull is repaired: +10 HP, now ${result.hullHealth}. Praise them and send them back to studying.`;

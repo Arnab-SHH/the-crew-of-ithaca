@@ -2,8 +2,14 @@ const path = require('path');
 // .env.local (written by the ElevenLabs / Chert CLIs) wins over .env
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env.local') });
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
-// LiveKit keys + AGENT_NAME for Captain Odysseus's outbound calls
-require('dotenv').config({ path: path.resolve(__dirname, '../../captain-agent/.env.local') });
+// LiveKit keys + AGENT_NAME for Captain Odysseus's outbound calls come from captain-agent/.env.local,
+// even if another file left them empty.
+try {
+  const agentEnv = require('dotenv').parse(require('fs').readFileSync(path.resolve(__dirname, '../../captain-agent/.env.local')));
+  for (const k of ['LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET', 'AGENT_NAME']) {
+    if (!process.env[k] && agentEnv[k]) process.env[k] = agentEnv[k];
+  }
+} catch { /* no captain-agent/.env.local yet */ }
 
 const express = require('express');
 const http = require('http');

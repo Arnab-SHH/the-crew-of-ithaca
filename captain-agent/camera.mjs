@@ -21,7 +21,7 @@ export function watchCallerCamera(room, callerIdentity) {
       for (;;) {
         const { value, done } = await reader.read();
         if (done) return;
-        latest = value.frame;
+        latest = value; // { frame, rotation }
       }
     })().catch(() => {});
   };
@@ -31,7 +31,7 @@ export function watchCallerCamera(room, callerIdentity) {
   caller?.trackPublications.forEach((pub) => { if (pub.track) start(pub.track, pub, caller); });
 
   return {
-    snapshot: () => (latest ? toPngDataUrl(latest) : null),
+    snapshot: () => (latest ? toPngDataUrl(latest.frame, latest.rotation) : null),
     stop: () => {
       room.off(RoomEvent.TrackSubscribed, start);
       reader?.cancel().catch(() => {});
@@ -39,23 +39,37 @@ export function watchCallerCamera(room, callerIdentity) {
   };
 }
 
-/** VideoFrame -> downscaled RGB PNG as a data: URL. */
-export function toPngDataUrl(frame) {
+/**
+ * VideoFrame -> upright, downscaled RGB PNG as a data: URL.
+ * rotation (0-3 = 0/90/180/270 degrees clockwise) is how the phone says to turn the picture.
+ */
+export function toPngDataUrl(frame, rotation = 0) {
   const rgba = frame.type === VideoBufferType.RGBA ? frame : frame.convert(VideoBufferType.RGBA);
-  const scale = Math.min(1, MAX_WIDTH / rgba.width);
-  const w = Math.max(1, Math.round(rgba.width * scale));
-  const h = Math.max(1, Math.round(rgba.height * scale));
-  return `data:image/png;base64,${encodePng(rgba.data, rgba.width, rgba.height, w, h).toString('base64')}`;
+  const sideways = rotation === 1 || rotation === 3;
+  const uprightW = sideways ? rgba.height : rgba.width;
+  const uprightH = sideways ? rgba.width : rgba.height;
+  const scale = Math.min(1, MAX_WIDTH / uprightW);
+  const w = Math.max(1, Math.round(uprightW * scale));
+  const h = Math.max(1, Math.round(uprightH * scale));
+  return `data:image/png;base64,${encodePng(rgba.data, rgba.width, rgba.height, w, h, rotation).toString('base64')}`;
 }
 
-/** Minimal PNG encoder (8-bit RGB, nearest-neighbour resize). */
-export function encodePng(rgba, srcW, srcH, w, h) {
+/** Minimal PNG encoder (8-bit RGB, nearest-neighbour resize, optional clockwise rotation). */
+export function encodePng(rgba, srcW, srcH, w, h, rotation = 0) {
+  const sideways = rotation === 1 || rotation === 3;
+  const uprightW = sideways ? srcH : srcW;
+  const uprightH = sideways ? srcW : srcH;
   const raw = Buffer.alloc((w * 3 + 1) * h);
   for (let y = 0; y < h; y++) {
-    const sy = Math.min(srcH - 1, Math.floor((y * srcH) / h));
+    const uy = Math.min(uprightH - 1, Math.floor((y * uprightH) / h));
     raw[y * (w * 3 + 1)] = 0; // filter: none
     for (let x = 0; x < w; x++) {
-      const sx = Math.min(srcW - 1, Math.floor((x * srcW) / w));
+      const ux = Math.min(uprightW - 1, Math.floor((x * uprightW) / w));
+      // upright pixel (ux, uy) -> where it sits in the stored frame
+      let sx = ux, sy = uy;
+      if (rotation === 1) { sx = uy; sy = srcH - 1 - ux; }
+      else if (rotation === 2) { sx = srcW - 1 - ux; sy = srcH - 1 - uy; }
+      else if (rotation === 3) { sx = srcW - 1 - uy; sy = ux; }
       const s = (sy * srcW + sx) * 4;
       const d = y * (w * 3 + 1) + 1 + x * 3;
       raw[d] = rgba[s]; raw[d + 1] = rgba[s + 1]; raw[d + 2] = rgba[s + 2];

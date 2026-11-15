@@ -242,13 +242,20 @@ function triggerWarning({ phone, playerName, reason }) {
 async function triggerDamage({ phone, playerName, reason, room }) {
   if (!phone) return false;
   const last = lastCallAt.get(phone) || 0;
-  if (Date.now() - last < FACETIME_COOLDOWN_MS) return false;
+  if (Date.now() - last < FACETIME_COOLDOWN_MS) {
+    const wait = Math.ceil((FACETIME_COOLDOWN_MS - (Date.now() - last)) / 1000);
+    console.log(`[captain-call] Not calling ${playerName} yet: this phone had a check-in less than 90 s ago (${wait} s left).`);
+    return false;
+  }
   lastCallAt.set(phone, Date.now());
 
   // Without a managed assistant, Captain Odysseus is our own agent (captain-agent/).
   if (CHERT_ENABLED && !CHERT_ASSISTANT_ID) {
     // He calls the player (needs the LiveKit keys in captain-agent/.env.local)...
-    if (outboundEnabled()) {
+    if (!outboundEnabled()) {
+      console.log('[captain-call] Outbound calls are off (CAPTAIN_CALLS=inbound, or no LiveKit keys in captain-agent/.env.local).');
+    } else {
+      console.log(`[captain-call] Calling ${playerName} at ${phone}: starting a room for Captain Odysseus...`);
       const started = await callPlayer({
         room, player: playerName, phone,
         chert: { apiKey: CHERT_API_KEY, projectId: CHERT_PROJECT_ID, lineId: await getLineId() },

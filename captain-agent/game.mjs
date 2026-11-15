@@ -4,9 +4,11 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4000';
 const OPENAI_VISION_MODEL = process.env.VISION_MODEL || 'gpt-4o-mini';
 const GEMINI_VISION_MODEL = process.env.GEMINI_VISION_MODEL || 'gemini-2.5-flash';
 
-const CHECK_PROMPT = 'You check webcam photos for a study game. Reply only with JSON {"verified": boolean, "item": string}. '
-  + '"verified" is true only if the person is clearly showing a notebook, textbook, worksheet, or handwritten or printed '
-  + 'study notes to the camera. A phone, tablet, blank page, or empty hands does not count. "item" names what you see.';
+const CHECK_PROMPT = 'You check phone-camera photos for a study game. Reply only with JSON {"verified": boolean, "item": string}. '
+  + '"verified" is true if you can see a notebook, textbook, worksheet, or paper with handwritten or printed study notes '
+  + 'being shown to the camera, even if it is partly out of frame, tilted, sideways, close up, or a little blurry. '
+  + 'It is false for a phone, tablet, blank page, or a photo with no study material. '
+  + '"item" briefly describes what the photo actually shows.';
 
 /** POST to the game backend. Never throws: returns { ok: false, error } instead. */
 export async function tellGame(path, body) {
